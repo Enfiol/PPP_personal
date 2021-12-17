@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+//#include <mpi.h>
 
 int** loadMatrix(/*FILE* inputFile,*/ int m, int n)
 {
@@ -139,13 +140,21 @@ double ** reverseMatrix(double** matrix, int m, int n)
 
 
 
-int main()
+int main(int argc, char** argv)
 {
+    /*
+    MPI_Init(&argc, &argv);
+
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    int myrank, nprocs;
+    MPI_Status status;
+    */
     FILE* outputFile = fopen("out.txt", "w");
     //FILE* inputFile = fopen("in.txt", "r");
     int m, n;
-    m = 5;
-    n = 5;
+    m = 3000;
+    n = 3000;
     //fscanf(inputFile, "%d %d\n", &m, &n);
     double **matrix = loadMatrix(/*inputFile,*/ m, n);
     printMatrix(outputFile, matrix, m, n);
@@ -153,5 +162,6 @@ int main()
     printMatrix(outputFile, matrix, m, n);
     free(matrix);
     fclose(outputFile);
+    //MPI_Finalize();
     return 0;
 }
