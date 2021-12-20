@@ -132,9 +132,9 @@ double ** reverseMatrix(double** matrix, int m, int n)
         }
        
     }
-    free(matrix);
-    matrix = reverseMatrix;
-    return matrix;
+    //free(matrix);
+    //matrix = reverseMatrix;
+    return reverseMatrix;
 }
 
 
@@ -145,22 +145,37 @@ int main(int argc, char** argv)
     /*
     MPI_Init(&argc, &argv);
 
+    int myrank, nprocs;
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    int myrank, nprocs;
     MPI_Status status;
+    MPI_Win winmatrix;
     */
     FILE* outputFile = fopen("out.txt", "w");
     //FILE* inputFile = fopen("in.txt", "r");
     int m, n;
-    m = 3000;
-    n = 3000;
-    //fscanf(inputFile, "%d %d\n", &m, &n);
-    double **matrix = loadMatrix(/*inputFile,*/ m, n);
-    printMatrix(outputFile, matrix, m, n);
-    matrix = reverseMatrix(matrix, m, n);
-    printMatrix(outputFile, matrix, m, n);
-    free(matrix);
+    m = 3;
+    n = 3;
+    //if (myrank == 0)
+    //{
+        //double** matrix = loadMatrix(/*inputFile,*/ m, n);
+    //}
+    //MPI_Win_allocate_shared(localtablesize * sizeof(int), sizeof(int),
+        //MPI_INFO_NULL, MPI_COMM_WORLD, &matrix, &winmatrix);
+    double* matrix[3];
+    double tmp1[3] = { 2,5,7 };
+    double tmp2[3] = { 6,3,4 };
+    double tmp3[3] = { 5,-2,-3 };
+    matrix[0] = tmp1;
+    matrix[1] = tmp2;
+    matrix[2] = tmp3;
+
+    double** out;
+
+    printMatrix(stdout, matrix, m, n);
+    out = reverseMatrix(matrix, m, n);
+    printMatrix(stdout, out, m, n);
+    //free(matrix);
     fclose(outputFile);
     //MPI_Finalize();
     return 0;
