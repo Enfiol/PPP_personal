@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-//#include <mpi.h>
+#include <mpi.h>
 
 int** loadMatrix(/*FILE* inputFile,*/ int m, int n)
 {
@@ -63,14 +63,14 @@ int** loadMatrix(/*FILE* inputFile,*/ int m, int n)
 }
 
 
-void printMatrix(FILE *outputFile, double **matrix, int m, int n)
+void printMatrix(FILE *outputFile, double *matrix, int m, int n)
 {
     
     for(int i = 0; i < n; i++)
     {
         for(int j = 0; j < m; j++)
         {
-            fprintf(outputFile, "%f ", matrix[i][j]);
+            fprintf(outputFile, "%f ", matrix[i * n + j]);
         }
         fprintf(outputFile, "\n");
     }
@@ -78,63 +78,66 @@ void printMatrix(FILE *outputFile, double **matrix, int m, int n)
     
 }
 
-double ** reverseMatrix(double** matrix, int m, int n)
+void reverseMatrix(double* matrix, double* submatrix, int m, int n, int rank, int nproc)
 {
-    // Выделение матрицы
-    double** reverseMatrix = (int**)malloc(sizeof(int*) * n);
-    if (reverseMatrix == NULL)
-    {
-        printf("Cannot allocate memory for matrix\n");
-        exit(1);
-    }
-    for (int i = 0; i < n; i++)
-    {
-        reverseMatrix[i] = (int*)malloc(sizeof(double) * m);
-        if (reverseMatrix[i] == NULL)
-        {
-            printf("Cannot allocate memory for row of matrix\n");
-            exit(1);
-        }
-    }
-    // Заполнение единичной матрицы
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < m; j++)
-        {
-            if (i == j)
-            {
-                reverseMatrix[i][j] = 1;
-            }
-            else
-            {
-                reverseMatrix[i][j] = 0;
-            }
-        }
-    }
+    double coef;
+    int partCount = m / nproc + (m % nproc != 0);
+    double* part = (double*)malloc(sizeof(double) * m);
+    double* subpart = (double*)malloc(sizeof(double) * m);
+    memset(part, 0, sizeof(double) * m);
+    memset(subpart, 0, sizeof(double) * m );
+    double* tmpMatrix = (double*)malloc(sizeof(double) * m * n);
+    double* tmpSubmatrix = (double*)malloc(sizeof(double) * m * n);
+    memset(tmpMatrix, 0, sizeof(double) * m * n);
+    memset(tmpSubmatrix, 0, sizeof(double) * m * n);
     // Преобразование к единичной
     for (int c = 0; c < n; c++)
     {
-        double coef = matrix[c][c];
-        for(int i = 0; i < m; i++)
+        if (rank == 0)
         {
-            matrix[c][i] = matrix[c][i] / coef;
-            reverseMatrix[c][i] = reverseMatrix[c][i] / coef;
+            coef = matrix[c * n + c];
         }
-        for (int i = 0; i < m; i++)
+        MPI_Bcast(&coef, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        for(int i = partCount * rank; i < partCount * (rank+1) && i < m; i++)
         {
-            if (i == c) continue;
-            coef = matrix[i][c];
+            part[i] = matrix[c * n + i] / coef;
+            subpart[i] = submatrix[c * n + i] / coef;
+        }
+
+        MPI_Allreduce(part, &matrix[c * m], m, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(subpart, &submatrix[c * m], m, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        /*printf("S\n");
+        printMatrix(stdout, matrix, m, n);
+        printMatrix(stdout, submatrix, m, n);*/
+        
+        //-----------
+        for (int i = rank; i < m; i+=nproc)
+        {
+            if (i == c)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    tmpMatrix[i * n + j] = matrix[i * n + j];
+                    tmpSubmatrix[i * n + j] = submatrix[i * n + j];
+                }
+                continue;
+            }
+            coef = matrix[i * n + c];
             for (int j = 0; j < n; j++)
             {
-                matrix[i][j] -= matrix[c][j] * coef;
-                reverseMatrix[i][j] -= reverseMatrix[c][j] * coef;
+                tmpMatrix[i * n + j] = matrix[i * n + j] - matrix[c * n + j] * coef;
+                tmpSubmatrix[i * n + j] = submatrix[i * n + j] - submatrix[c * n + j] * coef;
             }
         }
-       
+        /*printf("I\n");
+        printMatrix(stdout, tmpMatrix, m, n);
+        printMatrix(stdout, tmpSubmatrix, m, n);*/
+        MPI_Allreduce(tmpMatrix, matrix, m*n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(tmpSubmatrix, submatrix, m*n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        /*printf("I\n");
+        printMatrix(stdout, matrix, m, n);
+        printMatrix(stdout, submatrix, m, n);*/
     }
-    //free(matrix);
-    //matrix = reverseMatrix;
-    return reverseMatrix;
 }
 
 
@@ -142,41 +145,52 @@ double ** reverseMatrix(double** matrix, int m, int n)
 
 int main(int argc, char** argv)
 {
-    /*
     MPI_Init(&argc, &argv);
 
     int myrank, nprocs;
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Status status;
-    MPI_Win winmatrix;
-    */
-    FILE* outputFile = fopen("out.txt", "w");
-    //FILE* inputFile = fopen("in.txt", "r");
+    
     int m, n;
     m = 3;
     n = 3;
-    //if (myrank == 0)
-    //{
-        //double** matrix = loadMatrix(/*inputFile,*/ m, n);
-    //}
-    //MPI_Win_allocate_shared(localtablesize * sizeof(int), sizeof(int),
-        //MPI_INFO_NULL, MPI_COMM_WORLD, &matrix, &winmatrix);
-    double* matrix[3];
-    double tmp1[3] = { 2,5,7 };
-    double tmp2[3] = { 6,3,4 };
-    double tmp3[3] = { 5,-2,-3 };
-    matrix[0] = tmp1;
-    matrix[1] = tmp2;
-    matrix[2] = tmp3;
 
-    double** out;
 
-    printMatrix(stdout, matrix, m, n);
-    out = reverseMatrix(matrix, m, n);
-    printMatrix(stdout, out, m, n);
-    //free(matrix);
-    fclose(outputFile);
-    //MPI_Finalize();
+    double* matrix = (double*)malloc(sizeof(double) * m * n);
+    double* submatrix = (double*)malloc(sizeof(double) * m * n);
+    memset(submatrix, 0, sizeof(double)*m*n);
+    // Заполнение единичной матрицы
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < m; j++)
+        {
+            if (i == j)
+            {
+                submatrix[i * n + j] = 1;
+            }
+        }
+    }
+    if (myrank == 0)
+    {
+        double numbers[] = { 2,5,7,6,3,4,5,-2,-3 };
+        for (int i = 0; i < m * n; i++)
+        {
+            matrix[i] = numbers[i];
+        }
+    }
+
+    MPI_Bcast(matrix, m * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(submatrix, m * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (myrank == 0)
+    {
+        printMatrix(stdout, matrix, m, n);
+    }
+    reverseMatrix(matrix, submatrix, m, n, myrank, nprocs);
+    if (myrank == 0)
+    {
+        printMatrix(stdout, submatrix, m, n);
+    }
+    MPI_Finalize();
     return 0;
 }
