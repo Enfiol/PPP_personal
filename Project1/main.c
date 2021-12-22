@@ -3,24 +3,12 @@
 #include <string.h>
 #include <mpi.h>
 
-int** loadMatrix(/*FILE* inputFile,*/ int m, int n)
+int* loadMatrix(/*FILE* inputFile,*/ int m, int n)
 {
     
-    double **matrix = (int**)malloc(sizeof(int*)*n);
-    if (matrix == NULL)
-    {
-        printf("Cannot allocate memory for matrix\n");
-        exit(1);
-    }
-    for (int i = 0; i < n; i++)
-    {
-        matrix[i] = (int*)malloc(sizeof(double) * m);
-        if (matrix[i] == NULL)
-        {
-            printf("Cannot allocate memory for row of matrix\n");
-            exit(1);
-        }
-    }
+    double *matrix = (double*)malloc(sizeof(double)*n*m);
+   
+   
     // Матрица из файла
     /*char* s;
     s = (char*)malloc(sizeof(char) * 100);
@@ -54,7 +42,7 @@ int** loadMatrix(/*FILE* inputFile,*/ int m, int n)
     {
         for (int j = 0; j < n; j++)
         {
-            matrix[i][j] = rand() % 100;
+            matrix[i*m + j] = rand() % 100;
         }
     }
     
@@ -153,11 +141,11 @@ int main(int argc, char** argv)
     MPI_Status status;
     
     int m, n;
-    m = 3;
-    n = 3;
+    m = 30000;
+    n = 30000;
 
 
-    double* matrix = (double*)malloc(sizeof(double) * m * n);
+    //double* matrix = (double*)malloc(sizeof(double) * m * n);
     double* submatrix = (double*)malloc(sizeof(double) * m * n);
     memset(submatrix, 0, sizeof(double)*m*n);
     // Заполнение единичной матрицы
@@ -171,14 +159,17 @@ int main(int argc, char** argv)
             }
         }
     }
-    if (myrank == 0)
+
+    double* matrix = loadMatrix(m, n);
+
+    /*if (myrank == 0)
     {
         double numbers[] = { 2,5,7,6,3,4,5,-2,-3 };
         for (int i = 0; i < m * n; i++)
         {
             matrix[i] = numbers[i];
         }
-    }
+    }*/
 
     MPI_Bcast(matrix, m * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(submatrix, m * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
