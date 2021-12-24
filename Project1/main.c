@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <mpi.h>
+#include <time.h>
 
 int* loadMatrix(/*FILE* inputFile,*/ int m, int n)
 {
@@ -116,12 +117,13 @@ void reverseMatrix(double* matrix, double* submatrix, int m, int n, int rank, in
                 tmpMatrix[i * n + j] = matrix[i * n + j] - matrix[c * n + j] * coef;
                 tmpSubmatrix[i * n + j] = submatrix[i * n + j] - submatrix[c * n + j] * coef;
             }
+            MPI_Allreduce(&tmpMatrix[i*n], &matrix[i*n], m, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(&tmpSubmatrix[i*n], &submatrix[i*n], m, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         }
         /*printf("I\n");
         printMatrix(stdout, tmpMatrix, m, n);
         printMatrix(stdout, tmpSubmatrix, m, n);*/
-        MPI_Allreduce(tmpMatrix, matrix, m*n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(tmpSubmatrix, submatrix, m*n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        
         /*printf("I\n");
         printMatrix(stdout, matrix, m, n);
         printMatrix(stdout, submatrix, m, n);*/
@@ -141,8 +143,8 @@ int main(int argc, char** argv)
     MPI_Status status;
     
     int m, n;
-    m = 30000;
-    n = 30000;
+    m = 2000;
+    n = 2000;
 
 
     //double* matrix = (double*)malloc(sizeof(double) * m * n);
@@ -175,12 +177,15 @@ int main(int argc, char** argv)
     MPI_Bcast(submatrix, m * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     if (myrank == 0)
     {
-        printMatrix(stdout, matrix, m, n);
+        //printMatrix(stdout, matrix, m, n);
     }
+    int begin = clock();
     reverseMatrix(matrix, submatrix, m, n, myrank, nprocs);
+    int end = clock();
     if (myrank == 0)
     {
-        printMatrix(stdout, submatrix, m, n);
+        //printMatrix(stdout, submatrix, m, n);
+        printf("Time: %d\n", (end - begin) / CLOCKS_PER_SEC);
     }
     MPI_Finalize();
     return 0;
